@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Meshtastic</string>
+    <string name="scan_start">Поиск устройств</string>
+    <string name="scan_stop">Остановить поиск</string>
+    <string name="connecting">Подключение…</string>
+    <string name="disconnected">Не подключено</string>
+    <string name="no_devices">Устройства не найдены</string>
+    <string name="permission_required">Требуется разрешение на доступ к местоположению для сканирования BLE</string>
+    <string name="bluetooth_disabled">Bluetooth выключен. Включите его в настройках.</string>
+</resources>

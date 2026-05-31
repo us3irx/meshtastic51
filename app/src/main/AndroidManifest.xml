@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- ========== BLE разрешения ========== -->
+    <!-- На API 21-28 BLE требует ACCESS_COARSE_LOCATION (баг/фича Android) -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.BLUETOOTH" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+    <!-- На API 31+ нужны новые разрешения, но мы таргетим 21 — оставим для совместимости -->
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation"
+        tools:targetApi="s" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"
+        tools:targetApi="s" />
+
+    <!-- ========== Сеть (для карты OSM и будущего Wi-Fi транспорта) ========== -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
+
+    <!-- ========== Foreground Service (фоновая работа BLE) ========== -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <!-- На API 34+ нужен тип, для старых Android игнорируется -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE"
+        tools:targetApi="34" />
+
+    <!-- ========== Питание (Flyme OS агрессивно убивает сервисы) ========== -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
+    <!-- ========== Хранилище (для кэша карт OSM) ========== -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+
+    <!-- BLE — не обязательно, но показывает что приложение его использует -->
+    <uses-feature android:name="android.hardware.bluetooth_le" android:required="true" />
+
+    <application
+        android:name=".MeshApplication"
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.Mesh51"
+        android:usesCleartextTraffic="true"
+        tools:ignore="UnusedAttribute">
+
+        <!-- Главная Activity -->
+        <activity
+            android:name=".ui.MainActivity"
+            android:exported="true"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!--
+            MeshService — основной Foreground Service.
+            Держит BLE соединение живым даже когда Meizu пытается убить процесс.
+            exported=false — внешние приложения не могут запустить напрямую.
+        -->
+        <service
+            android:name=".ble.MeshService"
+            android:exported="false"
+            android:foregroundServiceType="connectedDevice" />
+
+        <!--
+            BroadcastReceiver для перезапуска сервиса после перезагрузки телефона.
+            Flyme OS иногда не вызывает BOOT_COMPLETED — это известная проблема.
+        -->
+        <receiver
+            android:name=".ble.BootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+    </application>
+
+</manifest>
