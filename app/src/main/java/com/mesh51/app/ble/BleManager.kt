@@ -192,7 +192,7 @@ class BleManager(private val context: Context) {
         val chunks = data.chunked(currentMtu - 3)
 
         for (chunk in chunks) {
-            val success = writeCharacteristicSync(gatt, characteristic, chunk.toByteArray())
+            val success = writeCharacteristicSync(gatt, characteristic, chunk)
             if (!success) {
                 Timber.e("sendPacket: write failed")
                 return false
