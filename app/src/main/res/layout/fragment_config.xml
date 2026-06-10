@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <Button android:id="@+id/btnScan"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="Подключиться к устройству" android:layout_marginBottom="12dp"/>
+
+        <TextView android:id="@+id/configStatus"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="Ожидание…" android:textSize="14sp" android:paddingBottom="4dp"/>
+        <TextView android:id="@+id/myNodeNum"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:textSize="14sp" android:paddingBottom="4dp"/>
+        <TextView android:id="@+id/nodeCount"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:textSize="14sp" android:paddingBottom="16dp"/>
+
+        <!-- Мой узел -->
+        <LinearLayout android:id="@+id/myUserGroup" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:orientation="vertical"
+            android:visibility="gone" android:background="#F5F5F5"
+            android:padding="12dp" android:layout_marginBottom="8dp">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="Мой узел" android:textStyle="bold" android:textSize="15sp" android:paddingBottom="6dp"/>
+            <TextView android:id="@+id/myName" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="13sp"/>
+            <TextView android:id="@+id/myShortName" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="13sp"/>
+            <TextView android:id="@+id/myHwModel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="13sp"/>
+        </LinearLayout>
+
+        <!-- LoRa -->
+        <LinearLayout android:id="@+id/loraGroup" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:orientation="vertical"
+            android:visibility="gone" android:background="#F5F5F5"
+            android:padding="12dp" android:layout_marginBottom="8dp">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="LoRa" android:textStyle="bold" android:textSize="15sp" android:paddingBottom="6dp"/>
+            <TextView android:id="@+id/loraRegion" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="13sp"/>
+            <TextView android:id="@+id/loraPreset" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="13sp"/>
+            <TextView android:id="@+id/loraHopLimit" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="13sp"/>
+            <TextView android:id="@+id/loraTxPower" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="13sp"/>
+            <TextView android:id="@+id/loraFreq" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="13sp"/>
+        </LinearLayout>
+
+        <!-- Device -->
+        <LinearLayout android:id="@+id/deviceGroup" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:orientation="vertical"
+            android:visibility="gone" android:background="#F5F5F5"
+            android:padding="12dp" android:layout_marginBottom="8dp">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="Устройство" android:textStyle="bold" android:textSize="15sp" android:paddingBottom="6dp"/>
+            <TextView android:id="@+id/deviceRole" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="13sp"/>
+        </LinearLayout>
+
+        <!-- Bluetooth -->
+        <LinearLayout android:id="@+id/btGroup" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:orientation="vertical"
+            android:visibility="gone" android:background="#F5F5F5"
+            android:padding="12dp" android:layout_marginBottom="8dp">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="Bluetooth" android:textStyle="bold" android:textSize="15sp" android:paddingBottom="6dp"/>
+            <TextView android:id="@+id/btEnabled" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="13sp"/>
+            <TextView android:id="@+id/btMode" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="13sp"/>
+            <TextView android:id="@+id/btPin" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="13sp"/>
+        </LinearLayout>
+
+        <!-- Position -->
+        <LinearLayout android:id="@+id/posGroup" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:orientation="vertical"
+            android:visibility="gone" android:background="#F5F5F5"
+            android:padding="12dp" android:layout_marginBottom="8dp">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="Позиция" android:textStyle="bold" android:textSize="15sp" android:paddingBottom="6dp"/>
+            <TextView android:id="@+id/posGpsEnabled" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="13sp"/>
+            <TextView android:id="@+id/posInterval" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="13sp"/>
+        </LinearLayout>
+
+        <!-- Power -->
+        <LinearLayout android:id="@+id/pwrGroup" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:orientation="vertical"
+            android:visibility="gone" android:background="#F5F5F5"
+            android:padding="12dp" android:layout_marginBottom="8dp">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="Питание" android:textStyle="bold" android:textSize="15sp" android:paddingBottom="6dp"/>
+            <TextView android:id="@+id/pwrSaving" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="13sp"/>
+        </LinearLayout>
+
+        <!-- Каналы -->
+        <LinearLayout android:id="@+id/channelsGroup" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:orientation="vertical"
+            android:visibility="gone" android:background="#F5F5F5"
+            android:padding="12dp" android:layout_marginBottom="8dp">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="Каналы" android:textStyle="bold" android:textSize="15sp" android:paddingBottom="6dp"/>
+            <TextView android:id="@+id/channelsText" android:layout_width="wrap_content"
+                android:layout_height="wrap_content" android:textSize="13sp" android:fontFamily="monospace"/>
+        </LinearLayout>
+
+    </LinearLayout>
+</ScrollView>

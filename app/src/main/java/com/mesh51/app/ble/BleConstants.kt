@@ -27,7 +27,9 @@ object BleConstants {
     // ─────────────────────────────────────────────────────────────
 
     /** UUID основного BLE сервиса Meshtastic */
-    val MESH_SERVICE_UUID: UUID = UUID.fromString("6ba1b218-15a8-461f-9fa8-5d6571045a21")
+    // Поддерживаем оба UUID — старый и новый формат прошивок Meshtastic
+    val MESH_SERVICE_UUID: UUID = UUID.fromString("6ba1b218-15a8-461f-9fa8-5dcae273eafd")
+    val MESH_SERVICE_UUID_OLD: UUID = UUID.fromString("6ba1b218-15a8-461f-9fa8-5d6571045a21")
 
     // ─────────────────────────────────────────────────────────────
     // Характеристики сервиса

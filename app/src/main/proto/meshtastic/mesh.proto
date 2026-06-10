@@ -1,0 +1,576 @@
+syntax = "proto3";
+package meshtastic;
+option java_package = "com.mesh51.proto";
+option java_outer_classname = "MeshProtos";
+option optimize_for = LITE_RUNTIME;
+
+import "meshtastic/portnums.proto";
+
+// GPS позиция узла
+message Position {
+  sfixed32 latitude_i = 1;   // широта * 1e7
+  sfixed32 longitude_i = 2;  // долгота * 1e7
+  int32 altitude = 3;
+  uint32 time = 4;
+  float pdop = 7;
+  float hdop = 8;
+  float gdop = 9;
+  float gps_accuracy = 10;
+  uint32 ground_speed = 11;
+  uint32 ground_track = 12;
+  int32 fix_quality = 13;
+  int32 fix_type = 14;
+  int32 sats_in_view = 15;
+  uint32 sensor_id = 16;
+  uint32 next_update = 17;
+  uint32 seq_number = 18;
+  int32 precision_bits = 19;
+}
+
+// Информация об узле
+message User {
+  string id = 1;       // уникальный ID (обычно !hex)
+  string long_name = 2;
+  string short_name = 3;
+  bytes macaddr = 4;
+  HardwareModel hw_model = 6;
+  bool is_licensed = 7;
+  Role role = 8;
+
+  enum HardwareModel {
+    UNSET = 0;
+    TLORA_V2 = 1;
+    TLORA_V1 = 2;
+    TLORA_V2_1_1P6 = 3;
+    TBEAM = 4;
+    HELTEC_V2_0 = 5;
+    TBEAM_V0P7 = 6;
+    T_ECHO = 7;
+    TLORA_V1_1P3 = 8;
+    RAK4631 = 9;
+    HELTEC_V2_1 = 10;
+    HELTEC_V1 = 11;
+    LILYGO_TBEAM_S3_CORE = 12;
+    RAK11200 = 13;
+    NANO_G1 = 14;
+    TLORA_V2_1_1P8 = 15;
+    TLORA_T3_S3 = 16;
+    NANO_G1_EXPLORER = 17;
+    NANO_G2_ULTRA = 18;
+    LORA_TYPE = 19;
+    WIPHONE = 20;
+    WIO_WM1110 = 21;
+    RAK2560 = 22;
+    HELTEC_HRU_3601 = 23;
+    STATION_G1 = 25;
+    RAK11310 = 26;
+    SENSELORA_RP2040 = 27;
+    SENSELORA_S3 = 28;
+    CANARYONE = 29;
+    RP2040_LORA = 30;
+    STATION_G2 = 31;
+    LORA_RELAY_V1 = 32;
+    NRF52840DK = 33;
+    PPR = 34;
+    GENIEBLOCKS = 35;
+    NRF52_UNKNOWN = 36;
+    PORTDUINO = 37;
+    ANDROID_SIM = 38;
+    DIY_V1 = 39;
+    NRF52840_PCA10059 = 40;
+    DR_DEV = 41;
+    M5STACK = 42;
+    HELTEC_V3 = 43;
+    HELTEC_WSL_V3 = 44;
+    BETAFPV_2400_TX = 45;
+    BETAFPV_900_NANO_TX = 46;
+    RPI_PICO = 47;
+    HELTEC_WIRELESS_TRACKER = 48;
+    HELTEC_WIRELESS_PAPER = 49;
+    T_DECK = 50;
+    T_WATCH_S3 = 51;
+    PICOMPUTER_S3 = 52;
+    HELTEC_HT62 = 53;
+    EBYTE_ESP32_S3 = 54;
+    ESP32_S3_PICO = 55;
+    PRIVATE_HW = 255;
+  }
+
+  enum Role {
+    CLIENT = 0;
+    CLIENT_MUTE = 1;
+    ROUTER = 2;
+    ROUTER_CLIENT = 3;
+    REPEATER = 4;
+    TRACKER = 5;
+    SENSOR = 6;
+    TAK = 7;
+    CLIENT_HIDDEN = 8;
+    LOST_AND_FOUND = 9;
+    TAK_TRACKER = 10;
+  }
+}
+
+// Данные пакета (payload)
+message Data {
+  PortNum portnum = 1;
+  bytes payload = 2;
+  bool want_response = 3;
+  uint32 dest = 4;
+  uint32 source = 5;
+  uint32 request_id = 6;
+  uint32 reply_id = 7;
+  uint32 emoji = 8;
+}
+
+// Маршрутизация
+message Routing {
+  oneof variant {
+    RouteDiscovery route_request = 1;
+    RouteDiscovery route_reply = 2;
+    Error error_reason = 3;
+  }
+
+  enum Error {
+    NONE = 0;
+    NO_ROUTE = 1;
+    GOT_NAK = 2;
+    TIMEOUT = 3;
+    NO_INTERFACE = 4;
+    MAX_RETRANSMIT = 5;
+    NO_CHANNEL = 6;
+    TOO_LARGE = 7;
+    NO_RESPONSE = 8;
+    DUTY_CYCLE_LIMIT = 9;
+    BAD_REQUEST = 32;
+    NOT_AUTHORIZED = 33;
+  }
+}
+
+message RouteDiscovery {
+  repeated fixed32 route = 1;
+  repeated int32 snr_towards = 2;
+  repeated fixed32 back = 3;
+  repeated int32 snr_back = 4;
+}
+
+// Информация об узле в сети
+message NodeInfo {
+  uint32 num = 1;
+  User user = 2;
+  Position position = 3;
+  float snr = 4;
+  uint32 last_heard = 5;
+  DeviceMetrics device_metrics = 6;
+  int32 channel = 7;
+  bool via_mqtt = 8;
+  uint32 hops_away = 10;
+  bool is_favorite = 11;
+}
+
+message DeviceMetrics {
+  uint32 battery_level = 1;
+  float voltage = 2;
+  float channel_utilization = 3;
+  float air_util_tx = 4;
+  uint32 uptime_seconds = 5;
+}
+
+// Входящий пакет от устройства
+message MeshPacket {
+  uint32 from = 1;
+  uint32 to = 2;
+  uint32 channel = 3;
+
+  oneof payload_variant {
+    Data decoded = 4;
+    bytes encrypted = 5;
+  }
+
+  uint32 id = 6;
+  uint32 rx_time = 7;
+  float rx_snr = 8;
+  uint32 hop_limit = 10;
+  bool want_ack = 11;
+  Priority priority = 12;
+  int32 rx_rssi = 13;
+  bool via_mqtt = 14;
+  uint32 hop_start = 15;
+  bytes public_key = 16;
+  bool pki_encrypted = 17;
+  string next_hop = 18;
+  string relay_node = 19;
+
+  enum Priority {
+    UNSET = 0;
+    MIN = 1;
+    BACKGROUND = 10;
+    DEFAULT = 64;
+    RELIABLE = 70;
+    ACK = 120;
+    MAX = 127;
+  }
+}
+
+// Пакет ОТ телефона К устройству
+message ToRadio {
+  oneof payload_variant {
+    MeshPacket packet = 1;
+    uint32 want_config_id = 3;
+    bytes xmodem_packet = 4;
+    uint32 no_proto = 99;
+  }
+}
+
+// Пакет ОТ устройства К телефону
+message FromRadio {
+  uint32 id = 1;
+  oneof payload_variant {
+    MeshPacket packet = 2;
+    MyNodeInfo my_info = 3;
+    NodeInfo node_info = 4;
+    LogRecord log_record = 7;
+    uint32 config_complete_id = 8;
+    bytes rebooted = 9;
+    Channel channel = 10;
+    Config config = 11;
+    ModuleConfig module_config = 12;
+    QueueStatus queue_status = 14;
+    FileInfo file_info = 16;
+    ClientNotification client_notification = 17;
+    DeviceConnectionStatus device_connection_status = 18;
+    uint32 heartbeat = 19;
+    MqttClientProxyMessage mqtt_client_proxy_message = 20;
+    Metadata metadata = 21;
+  }
+}
+
+message MyNodeInfo {
+  uint32 my_node_num = 1;
+}
+
+message LogRecord {
+  string message = 1;
+  uint32 time = 2;
+  string source = 3;
+  Level level = 4;
+
+  enum Level {
+    UNSET = 0;
+    CRITICAL = 50;
+    ERROR = 40;
+    WARNING = 30;
+    INFO = 20;
+    DEBUG = 10;
+    TRACE = 5;
+  }
+}
+
+message QueueStatus {
+  int32 res = 1;
+  uint32 free = 2;
+  uint32 maxlen = 3;
+  uint32 mesh_packet_id = 4;
+}
+
+message FileInfo {
+  string file_name = 1;
+  uint32 size_bytes = 2;
+}
+
+message ClientNotification {
+  uint32 reply_id = 2;
+  uint32 time = 3;
+  LogRecord.Level level = 4;
+  string message = 5;
+}
+
+message DeviceConnectionStatus {
+  bool has_wifi = 2;
+  bool has_ethernet = 3;
+  bool has_bluetooth = 4;
+  string wifi_connected = 5;
+}
+
+message MqttClientProxyMessage {
+  string topic = 1;
+  oneof payload_variant {
+    bytes data = 2;
+    bool retained = 3;
+  }
+}
+
+message Metadata {
+  string firmware_version = 1;
+  uint32 device_state_version = 2;
+  bool canShutdown = 3;
+  bool hasWifi = 4;
+  bool hasBluetooth = 5;
+  bool hasEthernet = 6;
+  string role = 7;
+  uint32 position_flags = 8;
+  HardwareModel hw_model = 9;
+  string hasRemoteHardware = 10;
+  bool excluded_modules = 11;
+
+  enum HardwareModel {
+    UNSET = 0;
+  }
+}
+
+// Канал
+message Channel {
+  int32 index = 1;
+  ChannelSettings settings = 2;
+  Role role = 3;
+
+  enum Role {
+    DISABLED = 0;
+    PRIMARY = 1;
+    SECONDARY = 2;
+  }
+}
+
+message ChannelSettings {
+  int32 channel_num = 1;
+  bytes psk = 4;
+  string name = 5;
+  uint32 id = 6;
+  bool uplink_enabled = 7;
+  bool downlink_enabled = 8;
+}
+
+// Config и ModuleConfig — упрощённые версии
+message Config {
+  oneof payload_variant {
+    DeviceConfig device = 1;
+    PositionConfig position = 2;
+    PowerConfig power = 3;
+    NetworkConfig network = 4;
+    DisplayConfig display = 5;
+    LoRaConfig lora = 6;
+    BluetoothConfig bluetooth = 7;
+  }
+
+  message DeviceConfig {
+    Role role = 1;
+    bool serial_enabled = 2;
+    bool debug_log_api_enabled = 3;
+    uint32 button_gpio = 4;
+    uint32 buzzer_gpio = 5;
+    RebroadcastMode rebroadcast_mode = 6;
+    uint32 node_info_broadcast_secs = 7;
+    bool double_tap_as_button_press = 8;
+    bool is_managed = 9;
+    bool disable_triple_click = 10;
+    string tzdef = 11;
+    bool led_heartbeat_disabled = 12;
+
+    enum Role {
+      CLIENT = 0;
+      CLIENT_MUTE = 1;
+      ROUTER = 2;
+      ROUTER_CLIENT = 3;
+      REPEATER = 4;
+      TRACKER = 5;
+      SENSOR = 6;
+      TAK = 7;
+      CLIENT_HIDDEN = 8;
+      LOST_AND_FOUND = 9;
+      TAK_TRACKER = 10;
+    }
+    enum RebroadcastMode {
+      ALL = 0;
+      ALL_SKIP_DECODING = 1;
+      LOCAL_ONLY = 2;
+      KNOWN_ONLY = 3;
+    }
+  }
+
+  message PositionConfig {
+    uint32 position_broadcast_secs = 1;
+    bool position_broadcast_smart_enabled = 2;
+    bool fixed_position = 3;
+    bool gps_enabled = 4;
+    uint32 gps_update_interval = 5;
+    uint32 gps_attempt_time = 6;
+    uint32 position_flags = 7;
+    int32 rx_gpio = 8;
+    int32 tx_gpio = 9;
+    uint32 broadcast_smart_minimum_distance = 10;
+    uint32 broadcast_smart_minimum_interval_secs = 11;
+    int32 gps_en_gpio = 12;
+    GpsMode gps_mode = 13;
+    enum GpsMode { DISABLED = 0; ENABLED = 1; NOT_PRESENT = 2; }
+  }
+
+  message PowerConfig {
+    bool is_power_saving = 1;
+    uint32 on_battery_shutdown_after_secs = 2;
+    float adc_multiplier_override = 3;
+    uint32 wait_bluetooth_secs = 4;
+    uint32 sds_secs = 5;
+    uint32 ls_secs = 6;
+    uint32 min_wake_secs = 7;
+    string device_battery_ina_address = 8;
+    uint32 powermon_enables = 9;
+  }
+
+  message NetworkConfig {
+    bool wifi_enabled = 1;
+    string wifi_ssid = 3;
+    string wifi_psk = 4;
+    string ntp_server = 5;
+    bool eth_enabled = 6;
+    AddressMode address_mode = 7;
+    IpV4Config ipv4_config = 8;
+    string rsyslog_server = 9;
+    enum AddressMode { DHCP = 0; STATIC = 1; }
+    message IpV4Config {
+      fixed32 ip = 1; fixed32 gateway = 2; fixed32 subnet = 3; fixed32 dns = 4;
+    }
+  }
+
+  message DisplayConfig {
+    uint32 screen_on_secs = 1;
+    GpsCoordinateFormat gps_format = 2;
+    uint32 auto_screen_carousel_secs = 3;
+    bool compass_north_top = 4;
+    bool flip_screen = 5;
+    Units units = 6;
+    OledType oled = 7;
+    DisplayMode displaymode = 8;
+    bool heading_bold = 9;
+    bool wake_on_tap_or_motion = 10;
+    enum GpsCoordinateFormat { DEC = 0; DMS = 1; UTM = 2; MGRS = 3; OLC = 4; OSGR = 5; }
+    enum Units { METRIC = 0; IMPERIAL = 1; }
+    enum OledType { OLED_AUTO = 0; OLED_SSD1306 = 1; OLED_SH1106 = 2; OLED_SH1107 = 3; }
+    enum DisplayMode { DEFAULT = 0; TWOCOLOR = 1; INVERTED = 2; COLOR = 3; }
+  }
+
+  message LoRaConfig {
+    bool use_preset = 1;
+    ModemPreset modem_preset = 2;
+    uint32 bandwidth = 3;
+    uint32 spread_factor = 4;
+    uint32 coding_rate = 5;
+    float frequency_offset = 6;
+    RegionCode region = 7;
+    uint32 hop_limit = 8;
+    bool tx_enabled = 9;
+    int32 tx_power = 10;
+    uint32 channel_num = 11;
+    bool override_duty_cycle = 12;
+    bool sx126x_rx_boosted_gain = 13;
+    float override_frequency = 14;
+    bool pa_fan_disabled = 15;
+    repeated uint32 ignore_incoming = 103;
+    bool ignore_mqtt = 104;
+    bool config_ok_to_mqtt = 105;
+
+    enum ModemPreset {
+      LONG_FAST = 0; LONG_SLOW = 1; VERY_LONG_SLOW = 2; MEDIUM_SLOW = 3;
+      MEDIUM_FAST = 4; SHORT_SLOW = 5; SHORT_FAST = 6; LONG_MODERATE = 7;
+    }
+    enum RegionCode {
+      UNSET = 0; US = 1; EU_433 = 2; EU_868 = 3; CN = 4; JP = 5;
+      ANZ = 6; KR = 7; TW = 8; RU = 9; IN = 10; NZ_865 = 11;
+      TH = 12; LORA_24 = 13; UA_433 = 14; UA_868 = 15; MY_433 = 16;
+      MY_919 = 17; SG_923 = 18;
+    }
+  }
+
+  message BluetoothConfig {
+    bool enabled = 1;
+    PairingMode mode = 2;
+    uint32 fixed_pin = 3;
+    enum PairingMode { RANDOM_PIN = 0; FIXED_PIN = 1; NO_PIN = 2; }
+  }
+}
+
+message ModuleConfig {
+  oneof payload_variant {
+    MQTTConfig mqtt = 1;
+    SerialConfig serial = 2;
+    ExternalNotificationConfig external_notification = 3;
+    StoreForwardConfig store_forward = 4;
+    RangeTestConfig range_test = 5;
+    TelemetryConfig telemetry = 6;
+    CannedMessageConfig canned_message = 7;
+    AudioConfig audio = 9;
+    RemoteHardwareConfig remote_hardware = 10;
+    NeighborInfoConfig neighbor_info = 11;
+    DetectionSensorConfig detection_sensor = 12;
+    PaxcounterConfig paxcounter = 14;
+  }
+  message MQTTConfig {
+    bool enabled = 1; string address = 2; string username = 3; string password = 4;
+    bool encryption_enabled = 5; bool json_enabled = 6; bool tls_enabled = 7;
+    string root = 8; bool proxy_to_client_enabled = 9; bool map_reporting_enabled = 10;
+  }
+  message SerialConfig { bool enabled = 1; bool echo = 2; int32 rxd = 3; int32 txd = 4; }
+  message ExternalNotificationConfig { bool enabled = 1; }
+  message StoreForwardConfig { bool enabled = 1; }
+  message RangeTestConfig { bool enabled = 1; }
+  message TelemetryConfig { uint32 device_update_interval = 1; uint32 environment_update_interval = 2; }
+  message CannedMessageConfig { bool enabled = 1; }
+  message AudioConfig { bool codec2_enabled = 1; }
+  message RemoteHardwareConfig { bool enabled = 1; }
+  message NeighborInfoConfig { bool enabled = 1; uint32 update_interval = 2; }
+  message DetectionSensorConfig { bool enabled = 1; }
+  message PaxcounterConfig { bool enabled = 1; uint32 paxcounter_update_interval = 2; }
+}
+
+// Telemetry
+message Telemetry {
+  uint32 time = 1;
+  oneof variant {
+    DeviceMetrics device_metrics = 2;
+    EnvironmentMetrics environment_metrics = 3;
+    AirQualityMetrics air_quality_metrics = 4;
+    PowerMetrics power_metrics = 6;
+  }
+}
+
+message EnvironmentMetrics {
+  float temperature = 1;
+  float relative_humidity = 2;
+  float barometric_pressure = 3;
+  float gas_resistance = 4;
+  float voltage = 5;
+  float current = 6;
+  uint32 iaq = 7;
+  float distance = 8;
+  float lux = 9;
+  float white_lux = 10;
+  float ir_lux = 11;
+  float uv_lux = 12;
+  float wind_direction = 13;
+  float wind_speed = 14;
+  bool wind_gust = 15;
+  float wind_lull = 16;
+}
+
+message AirQualityMetrics {
+  uint32 pm10_standard = 1;
+  uint32 pm25_standard = 2;
+  uint32 pm100_standard = 3;
+  uint32 pm10_environmental = 4;
+  uint32 pm25_environmental = 5;
+  uint32 pm100_environmental = 6;
+  uint32 particles_03um = 7;
+  uint32 particles_05um = 8;
+  uint32 particles_10um = 9;
+  uint32 particles_25um = 10;
+  uint32 particles_50um = 11;
+  uint32 particles_100um = 12;
+}
+
+message PowerMetrics {
+  float ch1_voltage = 1;
+  float ch1_current = 2;
+  float ch2_voltage = 3;
+  float ch2_current = 4;
+  float ch3_voltage = 5;
+  float ch3_current = 6;
+}

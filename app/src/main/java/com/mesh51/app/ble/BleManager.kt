@@ -7,6 +7,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import kotlinx.coroutines.*
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import timber.log.Timber
@@ -44,7 +45,7 @@ class BleManager(private val context: Context) {
     val scanResults: SharedFlow<BleDevice> = _scanResults.asSharedFlow()
 
     /** Входящие пакеты от устройства (сырые байты protobuf) */
-    private val _incomingPackets = MutableSharedFlow<ByteArray>(replay = 0, extraBufferCapacity = 128)
+    private val _incomingPackets = MutableSharedFlow<ByteArray>(replay = 100, extraBufferCapacity = 256)
     val incomingPackets: SharedFlow<ByteArray> = _incomingPackets.asSharedFlow()
 
     // ─────────────────────────────────────────────────────────────
@@ -68,7 +69,8 @@ class BleManager(private val context: Context) {
      * Каждая операция (read/write/descriptor write) отправляет результат сюда.
      * Следующая операция стартует только после получения результата.
      */
-    private val gattResultChannel = Channel<GattResult>(Channel.CONFLATED)
+    private val gattResultChannel = Channel<GattResult>(Channel.UNLIMITED)
+    private val gattMutex = kotlinx.coroutines.sync.Mutex()
 
     /** Текущий MTU (может быть изменён после negotiation) */
     private var currentMtu = BleConstants.MIN_MTU
@@ -107,20 +109,26 @@ class BleManager(private val context: Context) {
             return
         }
 
-        // Фильтр по UUID сервиса Meshtastic — меньше мусора в результатах
-        val filters = listOf(
-            ScanFilter.Builder()
-                .setServiceUuid(android.os.ParcelUuid(BleConstants.MESH_SERVICE_UUID))
-                .build()
-        )
-
-        // SCAN_MODE_LOW_LATENCY — быстрее находит устройства, но жрёт батарею.
-        // Используем только на время активного сканирования.
+        // На Android 5.1 фильтр по ServiceUUID ломает сканирование.
+        // Сканируем без фильтров, все BLE устройства.
         val settings = ScanSettings.Builder()
             .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
             .build()
 
-        scanner.startScan(filters, settings, scanCallback)
+        try {
+            scanner.startScan(null, settings, scanCallback)
+            Timber.i("BLE scan started (no filters)")
+        } catch (e: Exception) {
+            Timber.e(e, "startScan failed, trying legacy")
+            try {
+                scanner.startScan(scanCallback)
+            } catch (e2: Exception) {
+                Timber.e(e2, "legacy scan failed")
+                isScanning.set(false)
+                _connectionState.value = ConnectionState.Error("Сканирование недоступно")
+                return
+            }
+        }
 
         // Автоостановка через SCAN_PERIOD_MS
         scanJob = scope.launch {
@@ -179,7 +187,7 @@ class BleManager(private val context: Context) {
             Timber.e("sendPacket: not connected")
             return false
         }
-        val service = gatt.getService(BleConstants.MESH_SERVICE_UUID) ?: run {
+        val service = gatt.getService(BleConstants.MESH_SERVICE_UUID) ?: gatt.getService(BleConstants.MESH_SERVICE_UUID_OLD) ?: run {
             Timber.e("sendPacket: MESH_SERVICE not found")
             return false
         }
@@ -241,12 +249,16 @@ class BleManager(private val context: Context) {
         characteristic: BluetoothGattCharacteristic,
         data: ByteArray
     ): Boolean {
-        return withTimeout(BleConstants.GATT_OPERATION_TIMEOUT_MS) {
-            characteristic.value = data
-            characteristic.writeType = BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
-            gatt.writeCharacteristic(characteristic)
-            val result = gattResultChannel.receive()
-            result.success
+        return gattMutex.withLock {
+            withTimeout(BleConstants.GATT_OPERATION_TIMEOUT_MS) {
+                // Дренируем старые результаты
+                while (!gattResultChannel.isEmpty) gattResultChannel.tryReceive()
+                characteristic.value = data
+                characteristic.writeType = BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
+                withContext(Dispatchers.Main) { gatt.writeCharacteristic(characteristic) }
+                val result = gattResultChannel.receive()
+                result.success
+            }
         }
     }
 
@@ -257,26 +269,41 @@ class BleManager(private val context: Context) {
     private fun readAllFromRadio() {
         scope.launch {
             val gatt = bluetoothGatt ?: return@launch
-            val service = gatt.getService(BleConstants.MESH_SERVICE_UUID) ?: return@launch
-            val characteristic = service.getCharacteristic(BleConstants.FROMRADIO_UUID) ?: return@launch
+            val service = gatt.getService(BleConstants.MESH_SERVICE_UUID)
+                ?: gatt.getService(BleConstants.MESH_SERVICE_UUID_OLD)
+                ?: return@launch
+            val characteristic = service.getCharacteristic(BleConstants.FROMRADIO_UUID)
+                ?: return@launch
 
-            // Читаем в цикле пока не получим пустой ответ
-            while (true) {
+            Timber.i("Reading FromRadio...")
+            var emptyCount = 0
+            var totalPackets = 0
+
+            // Читаем до 50 пакетов или пока не придёт пустой ответ
+            repeat(50) {
+                // Дренируем канал перед чтением
+                while (!gattResultChannel.isEmpty) gattResultChannel.tryReceive()
+
+                withContext(Dispatchers.Main) { gatt.readCharacteristic(characteristic) }
+
                 val result = withTimeoutOrNull(BleConstants.GATT_OPERATION_TIMEOUT_MS) {
-                    withContext(Dispatchers.Main) {
-                        gatt.readCharacteristic(characteristic)
-                    }
                     gattResultChannel.receive()
-                } ?: break
+                }
 
-                if (!result.success || result.data == null || result.data.isEmpty()) break
+                if (result == null || !result.success || result.data == null || result.data.isEmpty()) {
+                    emptyCount++
+                    if (emptyCount >= 2) return@repeat // Два пустых подряд — буфер пуст
+                    delay(200)
+                    return@repeat
+                }
 
-                Timber.v("FromRadio packet: ${result.data.size} bytes")
+                emptyCount = 0
+                totalPackets++
+                Timber.i("FromRadio packet #$totalPackets: ${result.data.size} bytes")
                 _incomingPackets.emit(result.data)
-
-                // Небольшая пауза между чтениями
-                delay(50)
+                delay(100)
             }
+            Timber.i("ReadAllFromRadio done: $totalPackets packets")
         }
     }
 
@@ -286,36 +313,80 @@ class BleManager(private val context: Context) {
      */
     private fun enableFromNumNotifications(gatt: BluetoothGatt) {
         scope.launch {
-            val service = gatt.getService(BleConstants.MESH_SERVICE_UUID) ?: return@launch
-            val characteristic = service.getCharacteristic(BleConstants.FROMNUM_UUID) ?: return@launch
-            val descriptor = characteristic.getDescriptor(BleConstants.CCCD_UUID) ?: return@launch
+            val service = gatt.getService(BleConstants.MESH_SERVICE_UUID)
+                ?: gatt.getService(BleConstants.MESH_SERVICE_UUID_OLD)
+                ?: run { Timber.e("No Meshtastic service"); return@launch }
 
+            // Шаг 1: включаем notify на FROMNUM без ожидания результата
+            val fromNumChar = service.getCharacteristic(BleConstants.FROMNUM_UUID)
+            if (fromNumChar != null) {
+                withContext(Dispatchers.Main) {
+                    gatt.setCharacteristicNotification(fromNumChar, true)
+                }
+                delay(300)
+                val descriptor = fromNumChar.getDescriptor(BleConstants.CCCD_UUID)
+                if (descriptor != null) {
+                    descriptor.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                    withContext(Dispatchers.Main) { gatt.writeDescriptor(descriptor) }
+                    delay(1000) // Ждём пока onDescriptorWrite отработает
+                    // Дренируем все результаты от writeDescriptor
+                    while (!gattResultChannel.isEmpty) gattResultChannel.tryReceive()
+                    Timber.i("FROMNUM notify sent")
+                }
+            }
+
+            // Шаг 2: UI — подключены
+            _connectionState.value = ConnectionState.Connected(
+                connectedDevice!!.address,
+                connectedDevice!!.name ?: "Unknown"
+            )
+
+            // Шаг 3: отправляем want_config через WRITE_NO_RESPONSE
+            // Не требует onCharacteristicWrite callback — просто пишем
+            delay(500)
+            val toRadioChar = service.getCharacteristic(BleConstants.TORADIO_UUID) ?: run {
+                Timber.e("TORADIO not found"); return@launch
+            }
+
+            val configId = (System.currentTimeMillis() / 1000).toInt()
+            val buf = mutableListOf(0x18.toByte())
+            var v = configId
+            while (v and 0x7F.inv() != 0) {
+                buf.add(((v and 0x7F) or 0x80).toByte())
+                v = v ushr 7
+            }
+            buf.add((v and 0x7F).toByte())
+
+            // Отправляем want_config и ждём ответа
+            while (!gattResultChannel.isEmpty) gattResultChannel.tryReceive()
+            toRadioChar.value = buf.toByteArray()
+            toRadioChar.writeType = android.bluetooth.BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
+
+            var writeOk = false
             withContext(Dispatchers.Main) {
-                gatt.setCharacteristicNotification(characteristic, true)
+                writeOk = gatt.writeCharacteristic(toRadioChar)
             }
-            delay(100) // Пауза перед записью дескриптора — нужна на Android 5.x
+            Timber.i("want_config id=$configId writeOk=$writeOk")
 
-            descriptor.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-            withContext(Dispatchers.Main) {
-                gatt.writeDescriptor(descriptor)
-            }
-
-            val result = withTimeoutOrNull(BleConstants.GATT_OPERATION_TIMEOUT_MS) {
-                gattResultChannel.receive()
-            }
-            if (result?.success == true) {
-                Timber.i("FROMNUM notifications enabled")
-                // После включения уведомлений — читаем что уже накопилось
+            if (writeOk) {
+                val ack = withTimeoutOrNull(5000) { gattResultChannel.receive() }
+                Timber.i("want_config ack: ${ack?.success}")
+                // Ждём FROMNUM notify от ноды (нода скажет когда данные готовы)
+                // Но также делаем принудительное чтение через 2 секунды
+                delay(2000)
                 readAllFromRadio()
-                _connectionState.value = ConnectionState.Connected(
-                    connectedDevice!!.address,
-                    connectedDevice!!.name ?: "Unknown"
-                )
             } else {
-                Timber.e("Failed to enable FROMNUM notifications")
+                Timber.e("want_config: writeCharacteristic returned false")
+                // Fallback: NO_RESPONSE
+                toRadioChar.writeType = android.bluetooth.BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
+                withContext(Dispatchers.Main) { gatt.writeCharacteristic(toRadioChar) }
+                Timber.i("want_config fallback NO_RESPONSE sent")
+                delay(2000)
+                readAllFromRadio()
             }
         }
     }
+
 
     private fun scheduleReconnect() {
         if (reconnectAttempts >= BleConstants.MAX_RECONNECT_ATTEMPTS) {
@@ -347,10 +418,9 @@ class BleManager(private val context: Context) {
     private val scanCallback = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult) {
             val device = result.device
-            val name = device.name ?: result.scanRecord?.deviceName ?: return
-            // Принимаем только Meshtastic устройства
-            if (!name.startsWith(BleConstants.MESHTASTIC_DEVICE_NAME_PREFIX, ignoreCase = true)) return
-
+            val name = device.name ?: result.scanRecord?.deviceName ?: "Unknown"
+            // Показываем все BLE устройства (фильтр по UUID ломает Android 5.1)
+            // Meshtastic устройства обычно называются "Meshtastic_XXXX"
             scope.launch {
                 _scanResults.emit(
                     BleDevice(
@@ -381,13 +451,23 @@ class BleManager(private val context: Context) {
 
             when {
                 newState == BluetoothProfile.STATE_CONNECTED && status == BluetoothGatt.GATT_SUCCESS -> {
-                    Timber.i("GATT connected, discovering services...")
+                    Timber.i("GATT connected, checking bond state...")
                     _connectionState.value = ConnectionState.DiscoveringServices
-                    // discoverServices ДОЛЖЕН вызываться с небольшой задержкой на Android 5.x
-                    // иначе иногда возвращает пустой список
-                    mainHandler.postDelayed({
-                        gatt.discoverServices()
-                    }, 600)
+                    val bondState = gatt.device.bondState
+                    Timber.i("Bond state: $bondState (NONE=10, BONDING=11, BONDED=12)")
+                    if (bondState == android.bluetooth.BluetoothDevice.BOND_NONE) {
+                        // Инициируем сопряжение — появится запрос PIN на телефоне
+                        Timber.i("Starting bonding...")
+                        gatt.device.createBond()
+                        // discoverServices после bonding — ждём дольше
+                        mainHandler.postDelayed({
+                            gatt.discoverServices()
+                        }, 4000)
+                    } else {
+                        mainHandler.postDelayed({
+                            gatt.discoverServices()
+                        }, 1500)
+                    }
                 }
 
                 newState == BluetoothProfile.STATE_DISCONNECTED -> {
@@ -421,17 +501,29 @@ class BleManager(private val context: Context) {
                 return
             }
 
+            // Логируем ВСЕ найденные сервисы для диагностики
+            Timber.i("=== Services discovered (${gatt.services.size} total) ===")
+            gatt.services.forEach { svc ->
+                Timber.i("  Service: ${svc.uuid}")
+                svc.characteristics.forEach { chr ->
+                    Timber.d("    Char: ${chr.uuid} props=${chr.properties}")
+                }
+            }
+
+            // Пробуем оба UUID — новый и старый формат прошивок
             val meshService = gatt.getService(BleConstants.MESH_SERVICE_UUID)
+                ?: gatt.getService(BleConstants.MESH_SERVICE_UUID_OLD)
             if (meshService == null) {
-                Timber.e("Meshtastic BLE service not found! Is this really a Meshtastic device?")
-                _connectionState.value = ConnectionState.Error("Meshtastic service not found")
+                Timber.w("Meshtastic service not found! Trying rediscovery...")
+                // Повторный discoverServices через 3 секунды
+                mainHandler.postDelayed({
+                    Timber.i("Re-running discoverServices...")
+                    gatt.discoverServices()
+                }, 3000)
                 return
             }
 
-            Timber.i("Services discovered. Meshtastic service found.")
-            Timber.d("Characteristics: ${meshService.characteristics.map { it.uuid }}")
-
-            // Запрашиваем увеличенный MTU
+            Timber.i("Meshtastic service FOUND! Chars: ${meshService.characteristics.map { it.uuid }}")
             gatt.requestMtu(BleConstants.REQUESTED_MTU)
         }
 
@@ -453,8 +545,10 @@ class BleManager(private val context: Context) {
         ) {
             when (characteristic.uuid) {
                 BleConstants.FROMNUM_UUID -> {
-                    // Устройство сообщает что есть новые данные — идём читать
-                    Timber.v("FROMNUM changed — reading FromRadio")
+                    val num = characteristic.value?.let {
+                        if (it.size >= 4) java.nio.ByteBuffer.wrap(it).order(java.nio.ByteOrder.LITTLE_ENDIAN).int else 0
+                    } ?: 0
+                    Timber.i("FROMNUM notify: value=$num — reading FromRadio")
                     readAllFromRadio()
                 }
                 BleConstants.LOGRADIO_UUID -> {

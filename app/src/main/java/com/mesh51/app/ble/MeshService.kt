@@ -49,6 +49,9 @@ class MeshService : LifecycleService() {
     // ─────────────────────────────────────────────────────────────
 
     val bleManager: BleManager by lazy { BleManager(applicationContext) }
+    val repository: com.mesh51.app.mesh.MeshRepository by lazy { 
+        com.mesh51.app.mesh.MeshRepository(bleManager) 
+    }
 
     // ─────────────────────────────────────────────────────────────
     // Binder для связи с UI
@@ -69,12 +72,39 @@ class MeshService : LifecycleService() {
     // Lifecycle
     // ─────────────────────────────────────────────────────────────
 
+    private val bondReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: android.content.Context, intent: android.content.Intent) {
+            if (intent.action == android.bluetooth.BluetoothDevice.ACTION_BOND_STATE_CHANGED) {
+                val state = intent.getIntExtra(
+                    android.bluetooth.BluetoothDevice.EXTRA_BOND_STATE,
+                    android.bluetooth.BluetoothDevice.BOND_NONE
+                )
+                val device = intent.getParcelableExtra<android.bluetooth.BluetoothDevice>(
+                    android.bluetooth.BluetoothDevice.EXTRA_DEVICE
+                )
+                timber.log.Timber.i("Bond state changed: $state for ${device?.address}")
+                if (state == android.bluetooth.BluetoothDevice.BOND_BONDED) {
+                    timber.log.Timber.i("Bonded! Reconnecting...")
+                    device?.let {
+                        lifecycleScope.launch {
+                            kotlinx.coroutines.delay(1000)
+                            bleManager.connect(it)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
         Timber.i("MeshService created")
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, buildNotification("Готов к подключению"))
         observeConnectionState()
+        // Регистрируем receiver для отслеживания bonding
+        val filter = android.content.IntentFilter(android.bluetooth.BluetoothDevice.ACTION_BOND_STATE_CHANGED)
+        registerReceiver(bondReceiver, filter)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -95,6 +125,7 @@ class MeshService : LifecycleService() {
 
     override fun onDestroy() {
         bleManager.close()
+        try { unregisterReceiver(bondReceiver) } catch (e: Exception) {}
         super.onDestroy()
         Timber.i("MeshService destroyed")
     }

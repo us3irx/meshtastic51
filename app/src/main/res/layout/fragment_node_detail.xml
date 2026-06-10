@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <!-- Шапка -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:background="#1565C0"
+            android:padding="12dp">
+
+            <Button
+                android:id="@+id/btnBack"
+                style="?android:attr/borderlessButtonStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="←"
+                android:textColor="#FFFFFF"
+                android:textSize="18sp" />
+
+            <!-- Аватар с коротким именем -->
+            <TextView
+                android:id="@+id/nodeShortName"
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:gravity="center"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF"
+                android:background="@drawable/bg_node_circle"
+                android:layout_gravity="center_vertical"
+                android:layout_marginStart="8dp" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:layout_marginStart="12dp"
+                android:layout_gravity="center_vertical">
+
+                <TextView
+                    android:id="@+id/nodeName"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:textColor="#FFFFFF" />
+
+                <TextView
+                    android:id="@+id/nodeId"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="12sp"
+                    android:textColor="#AAFFFFFF" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+        <!-- Кнопки действий -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="8dp"
+            android:background="#E3F2FD">
+
+            <Button
+                android:id="@+id/btnMessage"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="💬 Сообщение"
+                android:layout_marginEnd="4dp" />
+
+            <Button
+                android:id="@+id/btnTrace"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="🔍 Traceroute"
+                android:layout_marginStart="4dp" />
+
+        </LinearLayout>
+
+        <!-- Основная инфо -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <TextView android:id="@+id/nodeLastHeard"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:textSize="14sp" android:paddingBottom="4dp"/>
+
+            <TextView android:id="@+id/nodeSnr"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:textSize="14sp" android:paddingBottom="4dp"/>
+
+            <TextView android:id="@+id/nodeHops"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:textSize="14sp" android:paddingBottom="4dp"/>
+
+            <TextView android:id="@+id/nodeMqtt"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="📡 via MQTT" android:textSize="13sp"
+                android:textColor="#F44336" android:visibility="gone" android:paddingBottom="4dp"/>
+
+            <TextView android:id="@+id/nodeHwModel"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:textSize="13sp" android:textColor="#666666" android:paddingBottom="4dp"/>
+
+            <TextView android:id="@+id/nodeRole"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:textSize="13sp" android:textColor="#666666" android:paddingBottom="8dp"/>
+
+            <!-- Метрики устройства -->
+            <LinearLayout android:id="@+id/metricsGroup"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" android:background="#F5F5F5"
+                android:padding="12dp" android:layout_marginBottom="8dp" android:visibility="gone">
+
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="Метрики устройства" android:textStyle="bold"
+                    android:textSize="14sp" android:paddingBottom="6dp"/>
+
+                <TextView android:id="@+id/nodeBattery"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:textSize="13sp" android:visibility="gone"/>
+
+                <TextView android:id="@+id/nodeAirUtil"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:textSize="13sp"/>
+
+                <TextView android:id="@+id/nodeTxUtil"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:textSize="13sp"/>
+
+            </LinearLayout>
+
+            <!-- Позиция -->
+            <LinearLayout android:id="@+id/posGroup"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" android:background="#F5F5F5"
+                android:padding="12dp" android:layout_marginBottom="8dp" android:visibility="gone">
+
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="Позиция" android:textStyle="bold"
+                    android:textSize="14sp" android:paddingBottom="6dp"/>
+
+                <TextView android:id="@+id/nodeLat"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:textSize="13sp"/>
+
+                <TextView android:id="@+id/nodeLon"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:textSize="13sp"/>
+
+                <TextView android:id="@+id/nodeAlt"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:textSize="13sp"/>
+
+            </LinearLayout>
+
+            <!-- Traceroute результат -->
+            <TextView android:id="@+id/traceResult"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:textSize="13sp" android:fontFamily="monospace"
+                android:padding="8dp" android:background="#F5F5F5"
+                android:visibility="gone"/>
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</ScrollView>
